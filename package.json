@@ -1,0 +1,19 @@
+{
+  "name": "gesture-synth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn hand gestures into music in the browser. v0.1: one finger = one note of the 7-note major scale (two hands, selectable key, plus a chord mode).",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "serve": "node dev-server.mjs"
+  },
+  "keywords": [
+    "mediapipe",
+    "hand-tracking",
+    "web-audio",
+    "gesture",
+    "instrument"
+  ],
+  "license": "MIT"
+}

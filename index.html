@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gesture Synth · 手势音阶</title>
+    <style>
+      :root {
+        --bg: #0b0f19;
+        --panel: #121826;
+        --line: #1f2937;
+        --text: #e5e7eb;
+        --dim: #94a3b8;
+        --accent: #7dd3fc;
+        --accent2: #f9a8d4;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--text); }
+      body {
+        font: 15px/1.6 ui-sans-serif, system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+        display: flex; justify-content: center; padding: 28px 16px 48px;
+      }
+      .wrap { width: min(1080px, 100%); }
+      h1 { margin: 0; font-size: 26px; letter-spacing: .5px; }
+      h1 span { color: var(--accent); }
+      .sub { margin: 4px 0 20px; color: var(--dim); }
+
+      .layout {
+        display: grid; grid-template-columns: 272px minmax(0, 1fr);
+        gap: 18px; align-items: start;
+      }
+      @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+      .legend {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+        padding: 16px 16px 14px;
+      }
+      .legend h2 { margin: 0 0 12px; font-size: 15px; color: var(--accent); letter-spacing: .5px; }
+      .keymap { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+      .keymap li {
+        display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+        padding: 7px 10px; border-radius: 9px; border: 1px solid transparent;
+        font-size: 14px; transition: background .12s, border-color .12s;
+      }
+      .keymap li b { font-weight: 600; }
+      .keymap li .pitch { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+      .keymap li .solfa { color: var(--accent2); font-size: 13px; min-width: 62px; text-align: right; }
+      .keymap li.on { background: #16233a; border-color: #24486e; }
+      .keymap li.left-hand { margin-left: 10px; border-left: 2px solid #334155; border-radius: 4px 9px 9px 4px; }
+      .keymap li.left-hand.on { border-left-color: var(--accent2); background: #221c2e; }
+      .keymap li.on .solfa { color: #fbcfe8; }
+      .legend-note { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+      .legend-note p { margin: 5px 0; color: var(--dim); font-size: 13px; }
+      .legend-note em { color: var(--text); font-style: normal; font-weight: 600; }
+
+      .stage {
+        background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+        padding: 14px; display: grid; gap: 12px;
+      }
+      .mirror {
+        position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px;
+        overflow: hidden; background: #000; transform: scaleX(-1);
+      }
+      .mirror video, .mirror canvas {
+        position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      }
+      .hud {
+        display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+        flex-wrap: wrap;
+      }
+      .note {
+        font-size: 44px; font-weight: 700; line-height: 1; color: var(--accent);
+        font-variant-numeric: tabular-nums; min-width: 110px;
+      }
+      .readout { display: grid; gap: 3px; }
+      .chord { color: var(--dim); font-size: 13px; min-height: 1.1em; letter-spacing: .5px; }
+      select {
+        background: #0e1626; color: var(--text); border: 1px solid var(--line);
+        border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit;
+      }
+      .meta { display: flex; gap: 14px; color: var(--dim); font-size: 13px; flex-wrap: wrap; }
+      .meta b { color: var(--text); font-weight: 600; }
+
+      .controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+      button {
+        border: 0; border-radius: 10px; padding: 11px 20px; font-size: 15px; font-weight: 600;
+        background: var(--accent); color: #04212e; cursor: pointer;
+      }
+      button:disabled { opacity: .45; cursor: default; }
+      label { color: var(--dim); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+      .checks ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 10px; flex-wrap: wrap; }
+      .checks li {
+        font-size: 13px; color: var(--dim); border: 1px solid var(--line);
+        border-radius: 999px; padding: 4px 12px;
+      }
+      .checks li[data-state="ok"] { color: #86efac; border-color: #14532d; }
+      .checks li[data-state="fail"] { color: #fca5a5; border-color: #7f1d1d; }
+
+      .status { color: var(--dim); font-size: 14px; }
+      .status[data-state="fail"] { color: #fca5a5; }
+      .debug { color: #64748b; font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+      .diagOut {
+        margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px;
+        background: #0a0f1a; color: #cbd5e1; font-size: 12px; line-height: 1.7;
+        white-space: pre-wrap; word-break: break-all;
+        font-family: ui-monospace, Consolas, monospace;
+      }
+      button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+
+      footer { margin-top: 22px; color: var(--dim); font-size: 14px; }
+      footer ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+      code { background: #1e293b; border-radius: 5px; padding: 1px 6px; color: var(--accent2); }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Gesture <span>Synth</span></h1>
+      <p class="sub">一根手指 = 一个音。摄像头当乐器，不用装任何东西。<b id="version">v0.1 · 七声音阶版</b></p>
+
+      <div class="layout">
+        <aside class="legend">
+          <h2>手势 → 音</h2>
+          <ul class="keymap" id="keymap"></ul>
+          <div class="legend-note">
+            <p><em>手抬高</em> = 升八度，<em>放低</em> = 降八度</p>
+            <p><em>手往右移</em> = 音量变大</p>
+            <p id="legendHint"></p>
+          </div>
+        </aside>
+
+        <section class="stage">
+        <div class="mirror">
+          <video id="video" playsinline muted autoplay></video>
+          <canvas id="overlay"></canvas>
+        </div>
+
+        <div class="hud">
+          <div class="readout">
+            <div class="note" id="note">·</div>
+            <div class="chord" id="chord"></div>
+          </div>
+          <div class="meta">
+            <span>手指 <b id="fingers">–</b></span>
+            <span>八度 <b id="octave">–</b></span>
+            <span>音量 <b id="volume">–</b></span>
+            <span>手掌 <b id="hand">–</b></span>
+            <span><b id="fps">–</b> fps</span>
+            <span>err <b id="err">0</b></span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="start">开始 🎹</button>
+          <button id="test" class="ghost">检测测试</button>
+          <button id="diag" class="ghost">一键诊断</button>
+          <button id="rebuild" class="ghost">换推理方式</button>
+          <button id="reload" class="ghost">重启</button>
+        </div>
+        <div class="controls">
+          <label>调
+            <select id="key">
+              <option value="0" selected>C 大调</option>
+              <option value="1">D 大调</option>
+              <option value="2">E 大调</option>
+              <option value="3">F 大调</option>
+              <option value="4">G 大调</option>
+              <option value="5">A 大调</option>
+              <option value="6">B 大调</option>
+            </select>
+          </label>
+          <label>音阶
+            <select id="scale">
+              <option value="penta">五声</option>
+              <option value="major" selected>七声</option>
+            </select>
+          </label>
+          <label>玩法
+            <select id="mode">
+              <option value="melody" selected>旋律</option>
+              <option value="chord">和弦</option>
+            </select>
+          </label>
+        </div>
+        <div class="controls">
+          <label><input type="checkbox" id="cpu" /> 用 CPU 推理（更稳，稍慢）</label>
+          <label><input type="checkbox" id="swap" checked /> 交换左右手（认反了就取消）</label>
+          <label><input type="checkbox" id="thumb" checked /> 含拇指（5 个音）</label>
+          <label><input type="checkbox" id="pulse" /> 节奏律动（100 BPM）</label>
+          <label><input type="checkbox" id="skeleton" checked /> 显示骨架</label>
+        </div>
+
+        <div class="checks">
+          <ul id="checklist">
+            <li data-check="audio">音频引擎</li>
+            <li data-check="model">手部模型</li>
+            <li data-check="camera">摄像头</li>
+          </ul>
+        </div>
+
+        <div class="status" id="status">点"开始"，然后允许摄像头权限。</div>
+        <div class="debug" id="debug">t=0s · 帧 0 · 本帧手 0 · 有手 0</div>
+        <pre class="diagOut" id="diagOut" hidden></pre>
+        </section>
+      </div>
+
+      <footer>
+        <ol>
+          <li><b>一根手指 = 一个音</b>：哪根手指伸出来就响哪个音，同时伸多根 = 同时响几个音（右手往上走，左手接着往上走）。握拳 = 静音。</li>
+          <li><b>和弦版</b>（网址加 <code>?mode=chord</code>）：<b>一个手势 = 一个和弦</b> —— ☝️食指 C、🤘食指+小指 G、🤙拇指+小指 Am、✌️食指+中指 F、👍拇指 Dm、🖐五指全开 Em。</li>
+          <li>手抬高 = 升八度，放下 = 降八度；左右移动 = 音量。</li>
+          <li>必须在 <code>localhost</code> 或 <code>HTTPS</code> 下打开，浏览器才允许摄像头。用 <code>file://</code> 直接双击打不开。</li>
+        </ol>
+      </footer>
+    </main>
+
+    <script type="module" src="./src/app.js?v=11"></script>
+  </body>
+</html>
